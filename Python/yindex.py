@@ -32,6 +32,11 @@ class Yindex:
 		return rows
 
 
+	def getAll(self):
+		query_string = "SELECT * FROM yindex ORDER BY key ASC"
+		self.c.execute(query_string)
+		rows = self.c.fetchall()
+		return rows
 
 	# idxs = [{key: '', offset: 123, size: 123}]
 	def update(self, idxs):
@@ -51,5 +56,7 @@ class Yindex:
 	# TODO: remove all files and artifacts on destroy
 	def destroy(self):
 		self.conn.close()
+		if os.path.exists(self.path):
+			os.remove(self.path)
 
 

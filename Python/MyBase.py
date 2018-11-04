@@ -19,7 +19,7 @@ class MyBase:
 			self._load_meta()
 
 
-	def openTable(self, tableName):
+	def openTable(self, tableName, load=True):
 		"""
 		Explicit opening of table and loading into memory. TODO: expand to have timeout on lease
 		"""
@@ -30,11 +30,12 @@ class MyBase:
 			# Create session in memory
 			self.tableSessions[tableName] = {
 				'count': 1, 
-				'table_obj': Table(tableName)
+				'table_obj': Table(tableName, load=load)
 				}
 		else:
 			# add new session for table already in memory
 			self.tableSessions[tableName]['count'] += 1
+		print("Opened new session for table: {}".format(tableName))
 		return True
 
 	def closeTable(self, tableName):
@@ -48,14 +49,17 @@ class MyBase:
 			return False
 		self.tableSessions[tableName]['count'] -= 1
 		print("Closed user session for {}, current user count {}".format(tableName, self.tableSessions[tableName]['count']))
+		self.tableSessions[tableName]['table_obj'].close()
+		del self.tableSessions[tableName]
+		print("Moved {} out of memory".format(tableName))
 		# Check if all sessions closed
-		if self.tableSessions[tableName]['count'] == 0:
-			self.tableSessions[tableName]['table_obj'].close()
-			del self.tableSessions[tableName]
-			print("Moved {} out of memory".format(tableName))
+		# if self.tableSessions[tableName]['count'] == 0:
+		# 	self.tableSessions[tableName]['table_obj'].close()
+		# 	del self.tableSessions[tableName]
+		# 	print("Moved {} out of memory".format(tableName))
 		return True
 
-	def createTable(self, tableName, auto_open=True):
+	def createTable(self, tableName, auto_open=False):
 		"""
 		Create a new table with name tableName, check if table already exists before
 		doing so. If auto_open enabled (default) add a session and load into memory
@@ -69,7 +73,7 @@ class MyBase:
 		# update meta data for recovery
 		self._update_meta()
 		if auto_open:
-			self.openTable(tableName)
+			self.openTable(tableName, load=False)
 		return True
 
 	def destroyTable(self, tableName):
@@ -84,11 +88,12 @@ class MyBase:
 		if not tableName in self.tables:
 			print("{} doesn't exist and can't be destroyed".format(tableName))
 			return False
-		# Kill it
-		deleted = self.tables[tableName].destroy()
+		# TODO: this doesn't really work
+		deleted = Table(tableName).destroy()
 		if deleted:
 			print("{} was successfully destroyed".format(tableName))
-			del self.tables[tableName]
+			# del self.tables[tableName]
+			self.tables.remove(tableName)
 			self._update_meta()
 			return True
 		else:
@@ -129,7 +134,7 @@ class MyBase:
 
 		row = self.tableSessions[tableName]['table_obj'].getRow(rowKey)
 		if not row:
-			print("Unable to complete get operation")
+			print("No results returned")
 		return row
 
 	def getRows(self, tableName, startRow, endRow):
@@ -145,7 +150,7 @@ class MyBase:
 
 		rows = self.tableSessions[tableName]['table_obj'].getRows(startRow, endRow)
 		if not rows:
-			print("Unable to complete get operation")
+			print("No results returned")
 		return rows
 
 	def getColumnByRow(self, tableName, rowKey, family, qualifiers):
@@ -162,17 +167,9 @@ class MyBase:
 
 		data = self.tableSessions[tableName]['table_obj'].getColumnByRow(rowKey, family, qualifiers)
 		if not data:
-			print("Something went wrong with getColumnByRow")
+			print("No results returned")
 		return data
 
-	# def getSchema(self, tableName):
-	# 	"""
-	# 	Unused for now, not sure its needed
-	# 	"""
-	# 	if not tableName in self.tables:
-	# 		print("{} doesn't exist".format(tableName))
-	# 		return False
-	# 	self.tableSessions[tableName]['table_obj'].printSchema()
 
 	def memTableLimit(self, tableName, newLimit):
 		"""
@@ -192,6 +189,16 @@ class MyBase:
 			print("Set memtable limit for {} to {}".format(tableName, newLimit))
 			return True
 
+
+	def getSchema(self, tableName):
+		if not tableName in self.tables:
+			print("{} doesn't exist".format(tableName))
+			return False
+		if not tableName in self.tableSessions:
+			print("Table is not currently open, please call openTable() first")
+			return False
+		return self.tableSessions[tableName]['table_obj'].schema
+
 	def _load_meta(self):
 		"""
 		Populate the list of all tables stored in persistent meta (just names, nothing
@@ -208,6 +215,17 @@ class MyBase:
 			if name == dictionary[i][key]:
 				return True
 		return False
+
+	def closeAll(self):
+		if len(self.tableSessions) > 0:
+			print("Auto-closing the following tables")
+			names = []
+			for table in self.tableSessions:
+				print(table)
+				names.append(table)
+			# to avoid dic changing size in loop
+			for n in names:
+				self.closeTable(n)
 
 	def _update_meta(self):
 		"""

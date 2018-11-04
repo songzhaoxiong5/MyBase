@@ -1,0 +1,8 @@
+README
+
+This is the solution for the distributed version of MyBase, it is currently deployed 
+to 5 AWS EC2 instances at the public IP addresses stored in map.py.
+
+The mapping server should run map.py, all other servers should run server.py.
+
+A client can connect to the service via userInterface.py

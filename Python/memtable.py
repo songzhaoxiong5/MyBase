@@ -23,7 +23,7 @@ class Memtable:
 	def get(self, rowKey):
 		idx = self._check(rowKey)
 		if idx == -1:
-			return None
+			return ''
 		return self.entries[idx]
 
 
@@ -45,22 +45,36 @@ class Memtable:
 		return temp
 
 
+	# TODO: make efficient search for sorted entries (binary)
+	# pre: self.entries already sorted in ascending order
+	# def _check(self, rowKey):
+	# 	max_index = len(self.entries) - 1
+	# 	min_index = 0
+	# 	mid_index = min_index + (max_index - min_index) / 2
+	# 	while max_index >= min_index:
+	# 		if self.entries[mid_index]['key'] > rowKey:
+	# 			max_index = mid_index - 1
+	# 		elif self.entries[mid_index]['key'] < rowKey:
+	# 			min_index = mid_index + 1
+	# 		else:
+	# 			return rowKey
+	# 	return -1
 
-	def _checkRange(self, rowKey, low):
-		for i, entry in enumerate(self.entries):
-			if entry['key'] == rowKey:
-				return i
-			if low:
-				if entry['key'] < rowKey:
-					return i + 1
-			if not low:
-				if entry['key'] > rowKey:
-					return i - 1
-		# case where we are looking for upper bound but don't find it
-		if not low:
-			return len(self.entries) - 1
-		if low:
-			return 0
+	# def _checkRange(self, rowKey, low):
+	# 	for i, entry in enumerate(self.entries):
+	# 		if entry['key'] == rowKey:
+	# 			return i
+	# 		if low:
+	# 			if entry['key'] < rowKey:
+	# 				return i + 1
+	# 		if not low:
+	# 			if entry['key'] > rowKey:
+	# 				return i - 1
+	# 	# case where we are looking for upper bound but don't find it
+	# 	if not low:
+	# 		return len(self.entries) - 1
+	# 	if low:
+	# 		return 0
 
 	# TODO: make efficient search for sorted entries (binary)
 	def _check(self, rowKey):
@@ -68,3 +82,18 @@ class Memtable:
 			if entry['key'] == rowKey:
 				return i
 		return -1
+
+	def _checkRange(self, rowKey, low):
+		for i, entry in enumerate(self.entries):
+			if entry['key'] == rowKey:
+				return i
+			if low:
+				if entry['key'] > rowKey:
+					return i
+			if not low:
+				if entry['key'] > rowKey:
+					return i - 1
+		# case where we are looking for upper bound but don't find it
+		return len(self.entries)
+
+
